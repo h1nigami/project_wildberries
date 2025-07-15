@@ -12,3 +12,5 @@
 мусор/wildberries_delivery.py
 мусор/wb_parser.py
 мусор/
+venv
+*ini
