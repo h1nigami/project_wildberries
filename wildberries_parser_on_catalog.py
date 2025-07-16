@@ -11,13 +11,6 @@ import openpyxl
 """
 ОБНОВЛЕН: на 15.07.2025 работает исправно!
 
-Доступен парсер бот в Telegram, присоединяйтесь: https://t.me/wildberries_scraping_bot
-https://t.me/timur_parsing_blog  # канал в Telegram разработка парсера
-
-https://vk.com/parsers_wildberries  # группа ВК парсера ВБ
-https://vk.com/happython  # группа ВК где можете заказывать парсеры и скрипты
-https://happypython.ru/2022/07/21/parser-wildberries/  # ссылка на обучающую статью парсинга WB
-
 Парсер wildberries по ссылке на каталог (указывать без фильтров)
 
 Возможные фильтра(для ручного ввода): 
@@ -167,7 +160,7 @@ def parser(url: str, low_price: int = 1, top_price: int = 1000000, discount: int
         # поиск введенной категории в общем каталоге
         category = search_category_in_catalog(url=url, catalog_list=catalog_data)
         data_list = []
-        for page in range(1, 21):
+        for page in range(1, 51):
             data = scrap_page(
                 page=page,
                 shard=category['shard'],
@@ -197,9 +190,6 @@ if __name__ == '__main__':
     """
     while True:
         try:
-            print('По вопросу парсинга Wildberries, отзывам и предложениям пишите в https://t.me/timur_parsing_blog')
-            print('Заказать разработку парсера Вайлдберрис:  https://t.me/object_13'
-                  '\nИли в группу ВК: https://vk.com/parsers_wildberries (рекомендую подписаться)\n')
             url = input('Введите ссылку на категорию без фильтров для сбора(или "q" для выхода):\n')
             if url.lower() == 'q':
                 break
