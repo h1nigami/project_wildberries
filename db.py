@@ -1,5 +1,8 @@
 import psycopg2
 from config import config
+from psycopg2 import sql
+import pandas
+from openpyxl import load_workbook
 
 DATABASE_URL = config.get_db_url()
 
@@ -9,29 +12,45 @@ db_password = config.get_password()
 
 
 class DB():
-    def __init__(self, name, user, password):
+    def __init__(self, name:str , user:str , password:str):
         self.connect = psycopg2.connect(f'dbname={name} user={user} password={password}')
         self.cur = self.connect.cursor()
 
-    def create_table(self, name:str):
-        query = f'''CREATE TABLE {name} (id bigint primary key,
-            name varchar,
-            price integer,
-            salePriceU integer,
-            cashback integer,
-            sale integer,
-            brand varchar,
-            rating double,
-            supplier varchar,
-            supplierRating double,
-            feedbacks varchar,
-            reviewRating double,
-            promoTextCard varchar,
-            promoTextCat varchar,
-            link varchar,
-        )'''
-        self.cur.execute(query=query)
-        return self.connect.commit()
+    def create_table(self, name:str, columns:str) -> None:
+        with self.cur as cursor:
+            columns_def = ''.join([f"'{col}' TEXT" for col in columns])
+            create_table_query = f'''CREATE TABLE IF NOT EXISTS {name} 
+            (id SERIAL PRIMARY KEY,
+            {columns_def})'''
+            cursor.execute(create_table_query)
+            self.connect.commit()
+    
+    def xlsx_to_posgresql(self, xlsx_file_path:str, table_name:str, sheet_name=None) -> bool:
+        """Импортируем данные из эксель в таблицу SQL"""
+        wb = load_workbook(xlsx_file_path, read_only=True)
+        if sheet_name: sheet = wb[sheet_name]
+        else: sheet = wb.active
+        try:
+            columns = [cell.value for cell in next(sheet.iter_rows(min_row=1,max_row=1))]
+            placeholders = ','.join(['%s' * len(columns)])
+            columns_str = ','.join(f'"{col}"' for col in columns)
+            insert_query = f'INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders})'
+            with self.cur as cursor:
+                for row in sheet.iter_rows(min_row=2):
+                    values = [cell.value for cell in row]
+                    cursor.execute(insert_query, values)
+                    self.connect.commit()
+                    print("Данные успешно импортированы")
+        except Exception as e: 
+            self.connect.rollback()
+            print(e)
+            return False
+        finally: 
+            self.connect.close()
+            wb.close()
+            return True
+        
+
         
 db = DB(name=db_name, user=db_user, password=db_password)
 
