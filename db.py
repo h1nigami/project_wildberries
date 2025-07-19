@@ -16,14 +16,21 @@ class DB():
         self.connect = psycopg2.connect(f'dbname={name} user={user} password={password}')
         self.cur = self.connect.cursor()
 
-    def create_table(self, name:str, columns:str) -> None:
+    def create_table(self, name:str, xlsx_file_path:str, sheet:str = None) -> None:
+        wb = load_workbook(xlsx_file_path, read_only=True)
+        sheet = wb[sheet] if sheet else wb.active
+        columns = [cell.value for cell in next(sheet.iter_rows(min_row=1, max_row=1))]
+        wb.close()
+
+        columns_def = ",\n".join([f'{col} TEXT' for col in columns])
+        create_table_query = f'''CREATE IF NOT EXISTS {name} 
+        (id SERIAL PRIMARY KEY,
+        {columns_def})'''
+
         with self.cur as cursor:
-            columns_def = ''.join([f"'{col}' TEXT" for col in columns])
-            create_table_query = f'''CREATE TABLE IF NOT EXISTS {name} 
-            (id SERIAL PRIMARY KEY,
-            {columns_def})'''
             cursor.execute(create_table_query)
             self.connect.commit()
+        return None
     
     def xlsx_to_posgresql(self, xlsx_file_path:str, table_name:str, sheet_name=None) -> bool:
         """Импортируем данные из эксель в таблицу SQL"""

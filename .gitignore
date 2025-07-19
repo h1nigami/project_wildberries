@@ -14,3 +14,4 @@
 мусор/
 venv
 *ini
+*__pycache__

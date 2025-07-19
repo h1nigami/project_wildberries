@@ -3,8 +3,8 @@ from typing import Any
 
 class Config():
     def __init__(self, file_name:str):
-        self.file = file_name
         self.config = configparser.ConfigParser()
+        self.config.read(file_name)
         
     def get_db_url(self) -> Any | None:
         try:

@@ -5,6 +5,7 @@ import pandas as pd
 from retry import retry
 from openpyxl.worksheet.dimensions import Dimension
 import openpyxl
+from db import db
 # pip install openpyxl
 # pip install xlsxwriter
 
@@ -129,10 +130,10 @@ def scrap_page(page: int, shard: str, query: str, low_price: int, top_price: int
     return r.json()
 
 
-def save_excel(data: list, filename: str):
-    """Сохранение результата в excel файл"""
+def save_data(data: list, filename: str):
+    """Сохранение результата в excel файл и таблицу в бд"""
     df = pd.DataFrame(data)
-    
+
     with pd.ExcelWriter(f'{filename}.xlsx', engine='openpyxl') as writer:
         df.to_excel(writer, sheet_name='data', index=False)
         
@@ -148,6 +149,9 @@ def save_excel(data: list, filename: str):
         
         for col, width in column_widths.items():
             worksheet.column_dimensions[col].width = width
+        
+    db.create_table(name=filename, xlsx_file_path=f'{filename}.xlsx')
+    db.xlsx_to_posgresql(xlsx_file_path=f'{filename}.xlsx', table_name=filename)
     
     print(f'Все сохранено в {filename}.xlsx\n')
 
@@ -175,7 +179,7 @@ def parser(url: str, low_price: int = 1, top_price: int = 1000000, discount: int
                 break
         print(f'Сбор данных завершен. Собрано: {len(data_list)} товаров.')
         # сохранение найденных данных
-        save_excel(data_list, f'{category["name"]}_from_{low_price}_to_{top_price}')
+        save_data(data_list, f'{category["name"]}_from_{low_price}_to_{top_price}')
         print(f'Ссылка для проверки: {url}?priceU={low_price * 100};{top_price * 100}&discount={discount}')
     except TypeError:
         print('Ошибка! Возможно не верно указан раздел. Удалите все доп фильтры с ссылки')
@@ -197,6 +201,6 @@ if __name__ == '__main__':
             top_price = int(input('Введите максимульную сумму товара: '))
             discount = int(input('Введите минимальную скидку(введите 0 если без скидки): '))
             parser(url=url, low_price=low_price, top_price=top_price, discount=discount)
-        except:
-            print('произошла ошибка данных при вводе, проверьте правильность введенных данных,\n'
+        except Exception as e:
+            print(e,'\nпроизошла ошибка данных при вводе, проверьте правильность введенных данных,\n'
                   'Перезапуск...')
