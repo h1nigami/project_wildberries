@@ -23,41 +23,56 @@ class DB():
         wb.close()
 
         columns_def = ",\n".join([f'{col} TEXT' for col in columns])
-        create_table_query = f'''CREATE IF NOT EXISTS {name} 
-        (id SERIAL PRIMARY KEY,
-        {columns_def})'''
+        create_table_query = f'''CREATE TABLE IF NOT EXISTS {name} 
+        ({columns_def})'''
 
-        with self.cur as cursor:
-            cursor.execute(create_table_query)
-            self.connect.commit()
+        cur = self.cur
+        cur.execute(create_table_query)
+        self.connect.commit()
         return None
     
-    def xlsx_to_posgresql(self, xlsx_file_path:str, table_name:str, sheet_name=None) -> bool:
+    def xlsx_to_posgresql(self, xlsx_file_path: str, table_name: str, sheet_name: str = None) -> bool:
         """Импортируем данные из эксель в таблицу SQL"""
         wb = load_workbook(xlsx_file_path, read_only=True)
-        if sheet_name: sheet = wb[sheet_name]
-        else: sheet = wb.active
-        try:
-            columns = [cell.value for cell in next(sheet.iter_rows(min_row=1,max_row=1))]
-            placeholders = ','.join(['%s' * len(columns)])
-            columns_str = ','.join(f'"{col}"' for col in columns)
-            insert_query = f'INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders})'
-            with self.cur as cursor:
-                for row in sheet.iter_rows(min_row=2):
-                    values = [cell.value for cell in row]
-                    cursor.execute(insert_query, values)
-                    self.connect.commit()
-                    print("Данные успешно импортированы")
-        except Exception as e: 
-            self.connect.rollback()
-            print(e)
-            return False
-        finally: 
-            self.connect.close()
-            wb.close()
-            return True
+        sheet = wb[sheet_name] if sheet_name else wb.active
         
+        try:
+            columns = [str(cell.value) for cell in next(sheet.iter_rows(min_row=1, max_row=1))]
+            placeholders = ','.join(['%s'] * len(columns))
+            columns_str = ','.join(f'"{col}"' for col in columns)
+            
+            insert_query = f'INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders})'.lower()
+            
+            cursor = self.cur
+            
+            batch = []
+            for row in sheet.iter_rows(min_row=2):
+                values = [cell.value for cell in row]
+                batch.append(values)
+                
+                # Вставляем пачками по 100 строк
+                if len(batch) >= 100:
+                    cursor.executemany(insert_query, batch)
+                    self.connect.commit()
+                    batch = []
+            
+            # Вставляем оставшиеся строки
+            if batch:
+                cursor.executemany(insert_query, batch)
+                self.connect.commit()
+                
+            print("Данные успешно импортированы")
+            return True
+            
+        except Exception as e:
+            self.connect.rollback()
+            print(f"Ошибка при импорте данных: {e}")
+            return False
+            
+        finally:
+            if hasattr(self, 'connect') and self.connect:
+                self.connect.close()
+            wb.close()
 
         
 db = DB(name=db_name, user=db_user, password=db_password)
-
